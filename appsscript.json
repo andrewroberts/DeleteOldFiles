@@ -1,0 +1,12 @@
+{
+  "timeZone": "Europe/London",
+  "dependencies": {
+    "libraries": [{
+      "userSymbol": "DateTime",
+      "libraryId": "1X2qbPZljrYN_TrvWkwW8OAn6zQgN7Gu5o1D4OBq522FVaCskiyZe44Au",
+      "version": "7"
+    }]
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "DEPRECATED_ES5"
+}
