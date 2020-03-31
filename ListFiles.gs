@@ -99,9 +99,6 @@
 
 // Configurable variables
 
-var folderId      = '1FICARegvwDk9aimritPdvz5Oq04-_sfE' // StartFolder
-// var folderId      =  '1U13-w0JtBHs91CzSST7pTzI1PMNPb243' // Folder1_2
-
 var searchDepthMax = 10; // Max depth for recursive search of files and folders
 var listFiles      = true; // flag for listing files
 var cacheTimeout   = 24 * 60 * 60 * 1000; // set cache time-out
@@ -116,7 +113,7 @@ var cacheKillFlag = 'InventoryScript_killFlag';
 
 // ===========================================================================================================
 // Reset the script cache if it is required to run from the beginning
-function reset() {
+function reset_() {
   SpreadsheetApp.getActiveSpreadsheet().toast('Reseting script...', 'Status', -1);
   
   // reset triggers and delete cache variables
@@ -130,10 +127,20 @@ function reset() {
 
 // ===========================================================================================================
 // List all folders and files, then write into the current spreadsheet.
-function run() {
+function run_() {
 
-  SpreadsheetApp.getActiveSpreadsheet().toast('Executing script...', 'Status', -1);
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var ui = SpreadsheetApp.getUi();
+  var buttons = ui.ButtonSet;
+
+  spreadsheet.toast('Executing script...', 'Status', -1);
   
+  var folderId = getFolderId();
+  
+  if (!folderId) {return;}
+
+return
+
   // load cache
   setKillFlag_(false, this.cacheTimeout);
   var outputRows = getCache_(this.lockWaitTime);
@@ -151,10 +158,25 @@ function run() {
                                 this.lockWaitTime, this.searchDepthMax);
   }
    
-  // write list
   writeFolderTree_(outputRows, this.appendToSheet);
+  spreadsheet.toast('Execution is complete!', 'Status', -1);
   
-  SpreadsheetApp.getActiveSpreadsheet().toast('Execution is complete!', 'Status', -1);
+  function getFolderId() {   
+  
+    var response = ui.prompt(LIST_FILES_TITLE_, FOLDER_PROMPT_, buttons.OK_CANCEL);  
+    if (response.getSelectedButton() !== ui.Button.OK) {return null}; 
+    responseText = response.getResponseText();
+    var folderId;
+    
+    if (responseText !== '') {  
+      folderId = responseText
+    } else {
+      ui.alert(LIST_FILES_TITLE_, FOLDER_PROMPT_, buttons.OK);
+      folderId = null
+    } 
+    
+    return folderId
+  }
 }
 
 
