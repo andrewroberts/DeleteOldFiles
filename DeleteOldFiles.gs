@@ -33,7 +33,9 @@
 // The filename is prepended with _API as the Github chrome extension won't 
 // push a file with the same name as the project.
 
-var Log_
+var Log_ = null
+var LockService_ = null
+var CacheService_ = null
 
 // Public event handlers
 // ---------------------
@@ -50,7 +52,7 @@ var Log_
 // For debug, rather than production builds, lower level functions are exposed
 // in the menu
 
-const EVENT_HANDLERS_ = {
+var EVENT_HANDLERS_ = {
 
 //                           Name                            onError Message                          Main Functionality
 //                           ----                            ---------------                          ------------------
@@ -65,18 +67,6 @@ function run(args)            {return eventHandler_(EVENT_HANDLERS_.run, args)}
 function clearList(args)      {return eventHandler_(EVENT_HANDLERS_.clearList, args)}
 function deleteOldFiles(args) {return eventHandler_(EVENT_HANDLERS_.deleteOldFiles, args)}
 function reset(args)          {return eventHandler_(EVENT_HANDLERS_.reset, args)}
-
-function onOpen() {
-  SpreadsheetApp
-    .getUi()
-    .createMenu('ListFiles')    
-    .addItem('Clear list', 'clearList')
-    .addItem('1. List Old Files', 'run')
-    .addSeparator()
-    .addItem('2. Delete Old Files', 'deleteOldFiles')
-    .addItem('Reset after failed run', 'reset')       
-    .addToUi()
-}
 
 // Private Functions
 // =================
@@ -101,7 +91,7 @@ function eventHandler_(config, args) {
 
   try {
 
-    const userEmail = Session.getActiveUser().getEmail()
+    var userEmail = Session.getActiveUser().getEmail()
 
     Log_ = BBLog.getLog({
       level:                DEBUG_LOG_LEVEL_, 
@@ -110,12 +100,17 @@ function eventHandler_(config, args) {
     
     Log_.info('Handling ' + config[0] + ' from ' + (userEmail || 'unknown email') + ' (' + SCRIPT_NAME + ' ' + SCRIPT_VERSION + ')')
     
+    if (args !== undefined) {
+      LockService_ = args.lockService
+      CacheService_ = args.cacheService
+    }
+    
     // Call the main function
     return config[2](args)
     
   } catch (error) {
   
-    const assertConfig = {
+    var assertConfig = {
       error:          error,
       userMessage:    config[1],
       log:            Log_,
@@ -127,6 +122,7 @@ function eventHandler_(config, args) {
     }
 
     Assert.handleError(assertConfig) 
+    Utils_.getSpreadsheet().toast('Finished with Error')
   }
   
 } // eventHandler_()
@@ -134,24 +130,30 @@ function eventHandler_(config, args) {
 // Private event handlers
 // ----------------------
 
-function clearList() {
-  var sheet = SpreadsheetApp.getActive().getSheetByName('Files')
+function clearList_() {
+  var spreadsheet = Utils_.getSpreadsheet()
+  var sheet = spreadsheet.getSheetByName('Files')
+  var numberOfRows = sheet.getLastRow()
+  if (numberOfRows < 2) {return}
   sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent()
+  spreadsheet.toast('List in "Files" cleared', 'Clear List')
 }
 
 function deleteOldFiles_() {
 
   try {
 
+    var spreadsheet = Utils_.getSpreadsheet()
+    var numberDeleted = null
     var ui = SpreadsheetApp.getUi()
     var buttons = ui.ButtonSet
     var deleteDate = getDeleteDate()
-    var spreadsheet = SpreadsheetApp.getActive()
+    if (!deleteDate) {return}    
     var sheet = spreadsheet.getSheetByName('Files')
     var data = sheet.getDataRange().getValues()
     data.shift() // Remove headers
     var numberOfRows = sheet.getLastRow() - 2
-    var numberDeleted = processRows()
+    numberDeleted = processRows()
     
   } catch (error) {
   
@@ -159,9 +161,11 @@ function deleteOldFiles_() {
   
   } finally {
   
-    spreadsheet.toast(
-      'Deleted ' + numberDeleted.folders + ' folders, ' + 
-        'and ' + numberDeleted.files + ' files.', DELETE_FILES_TITLE_, -1)
+    if (numberDeleted) {
+      spreadsheet.toast(
+        'Deleted ' + numberDeleted.folders + ' folders, ' + 
+          'and ' + numberDeleted.files + ' files.', DELETE_FILES_TITLE_, -1)
+    }
   }
   
   return
@@ -171,28 +175,26 @@ function deleteOldFiles_() {
 
   function getDeleteDate() {
 
-return DateTime.getDateTimeFromString({type: 'YYYY-MM-DD mm:hh:ss', dateTime: '2020-03-26'})
-
-    var deleteDate = DateTime.getMidnightLastNight(new Date())
-    
+    var deleteDate = DateTime.getMidnightLastNight(new Date())    
     var response = ui.prompt(DELETE_FILES_TITLE_, DATE_PROMPT_, buttons.OK_CANCEL)
     
-    if (response.getSelectedButton() !== ui.Button.OK) {return}
+    if (response.getSelectedButton() !== ui.Button.OK) {return null}
   
-    responseText = response.getResponseText()
+    var dateString = response.getResponseText()
     
-    if (responseText !== '') {  
-      deleteDate = DateTime.getDateTimeFromString({type: 'YYYY-MM-DD mm:hh:ss', dateTime: responseText})
-      if (!deleteDate) {throw new Error('Invalid date: "' + deleteDate + '". It has to be in the format YYYY-MM-DD')}
+    if (dateString === '') { 
+      dateString = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'YYYY-MM-dd')
     }
+
+    deleteDate = DateTime.getDateTimeFromString({type: 'YYYY-MM-DD mm:hh:ss', dateTime: dateString})
+    if (!deleteDate) {throw new Error('Invalid date: "' + deleteDate + '". It has to be in the format YYYY-MM-DD')}
     
-    var dateString = Utilities.formatDate(deleteDate, Session.getScriptTimeZone(), 'YYYY-MM-dd')
-    
-    if (dateString === deleteDate) {
-      response = ui.prompt('Deleting Files', 'Please confirm you want to delete all files', buttons.OK_CANCEL)
-      if (response.getSelectedButton() !== ui.Button.OK) {return} 
-    }  
-  
+    response = ui.alert(
+      'Deleting Files', 
+      'Please confirm you want to delete all files before ' + dateString, 
+      buttons.OK_CANCEL)
+        
+    if (response !== ui.Button.OK) {return null} 
     return deleteDate
   }
 

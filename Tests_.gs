@@ -7,7 +7,7 @@
 //
 // Code for internal/unit testing
 
-function test_init() {
+function test_init_() {
   Log_ = BBLog.getLog({
     sheetId:              TEST_SHEET_ID_,
     level:                BBLog.Level.ALL, 
@@ -16,10 +16,17 @@ function test_init() {
 }
 
 function test_misc() {
-  // ...
+  
 }
 
-function test_() {
-  test_init()
-  // ...
+function test_clearList() {
+  test_init_()
+  clearList_()
+  debugger
+}
+
+function test_listFiles() {
+  test_init_()
+  run_()
+  debugger
 }

@@ -99,29 +99,29 @@
 
 // Configurable variables
 
-var searchDepthMax = 10; // Max depth for recursive search of files and folders
-var listFiles      = true; // flag for listing files
-var cacheTimeout   = 24 * 60 * 60 * 1000; // set cache time-out
-var lockWaitTime   = 1 * 60 * 1000; // set maximium watiting time for the cache lock
-var appendToSheet  = true; // flag for appending to selected spreadsheet
-var writeBatchSize = 100; // the write batch size
+var SEARCH_DEPTH_MAX_ = 10; // Max depth for recursive search of files and folders
+var LIST_FILES_       = true; // flag for listing files
+var CACHE_TIMEOUT_    = 24 * 60 * 60 * 1000; // set cache time-out
+var LOCK_WAIT_TIME_   = 1 * 60 * 1000; // set maximium watiting time for the cache lock
+var APPEND_TO_SHEET_  = true; // flag for appending to selected spreadsheet
+var WRITE_BATCH_SIZE_ = 100; // the write batch size
 
 // ===========================================================================================================
 // Global variables
-var cacheOutputs = 'InventoryScript_outputs';
-var cacheKillFlag = 'InventoryScript_killFlag';
+var CACHE_OUTPUTS_ = 'InventoryScript_outputs';
+var CACHE_KILL_FLAG_ = 'InventoryScript_killFlag';
 
 // ===========================================================================================================
 // Reset the script cache if it is required to run from the beginning
 function reset_() {
-  SpreadsheetApp.getActiveSpreadsheet().toast('Reseting script...', 'Status', -1);
+  Utils_.getSpreadsheet().toast('Reseting script...', 'Status', -1);
   
   // reset triggers and delete cache variables
-  setKillFlag_(true, this.cacheTimeout);
-  deleteTriggers_(this.loopResetGapTime);
+  setKillFlag_(true, CACHE_TIMEOUT_);
+  deleteTriggers_();
   deleteCache_();
   
-  SpreadsheetApp.getActiveSpreadsheet().toast('Reset is complete!', 'Status', -1);
+  Utils_.getSpreadsheet().toast('Reset is complete!', 'Status', -1);
 }
 
 
@@ -129,21 +129,18 @@ function reset_() {
 // List all folders and files, then write into the current spreadsheet.
 function run_() {
 
-  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var spreadsheet = Utils_.getSpreadsheet();
   var ui = SpreadsheetApp.getUi();
   var buttons = ui.ButtonSet;
 
   spreadsheet.toast('Executing script...', 'Status', -1);
   
-  var folderId = getFolderId();
-  
+  var folderId = getFolderId();  
   if (!folderId) {return;}
 
-return
-
   // load cache
-  setKillFlag_(false, this.cacheTimeout);
-  var outputRows = getCache_(this.lockWaitTime);
+  setKillFlag_(false, CACHE_TIMEOUT_);
+  var outputRows = getCache_(LOCK_WAIT_TIME_);
   
   // get list
   if (outputRows === undefined || outputRows === null ||
@@ -151,14 +148,14 @@ return
       
     outputRows = [];
     
-    outputRows = getChildFiles_(null, DriveApp.getFolderById(this.folderId), 
-                                listFiles, cacheTimeout, outputRows);
+    outputRows = getChildFiles_(null, DriveApp.getFolderById(folderId), 
+                                LIST_FILES_, CACHE_TIMEOUT_, outputRows, LOCK_WAIT_TIME_);
     
-    outputRows = getFolderTree_(outputRows, this.folderId, this.listFiles, this.cacheTimeout, 
-                                this.lockWaitTime, this.searchDepthMax);
+    outputRows = getFolderTree_(outputRows, folderId, LIST_FILES_, CACHE_TIMEOUT_, 
+                                LOCK_WAIT_TIME_, SEARCH_DEPTH_MAX_);
   }
    
-  writeFolderTree_(outputRows, this.appendToSheet);
+  writeFolderTree_(outputRows, APPEND_TO_SHEET_);
   spreadsheet.toast('Execution is complete!', 'Status', -1);
   
   function getFolderId() {   
@@ -197,8 +194,8 @@ function getFolderTree_(outputRows, folderId, listFiles, cacheTimeout, lockWaitT
     outputRows = getChildFolders_(searchDepth, parentFolder.getName(), parentFolder, sheet,
                                   listFiles, cacheTimeout, lockWaitTime, outputRows, searchDepthMax);
   } catch (e) {
-    Logger.log('Error in getFolderTree_()' + e.message)
-    SpreadsheetApp.getActiveSpreadsheet().toast('Timed out!', 'Status', -1);
+    Log_.warning('Error in getFolderTree_()' + e.message)
+    Utils_.getSpreadsheet().toast('Internal Error - see Log', 'Status', -1);
   }
   
   return outputRows;
@@ -222,8 +219,8 @@ function writeFolderTree_(outputRows, appendToSheet) {
       reset();
     }
   } catch (e) {
-    Logger.log('Error in writeFolderTree_()' + e.message)  
-    SpreadsheetApp.getActiveSpreadsheet().toast('Timed out!', 'Status', -1);
+    Log_.warning('Error in writeFolderTree_()' + e.message)  
+    Utils_.getSpreadsheet().toast('Error - see Log', 'Status', -1);
   }
 }
 
@@ -240,11 +237,10 @@ function getChildFolders_(searchDepth, parentFolderName, parentFolder, sheet, li
     // List sub-folders inside the folder
     while (childFolders.hasNext() && searchDepth < searchDepthMax && getKillFlag_() === false) {
       childFolder = childFolders.next();
-      SpreadsheetApp.getActiveSpreadsheet().toast('Searching folder ' + childFolder.getName() +
+      Utils_.getSpreadsheet().toast('Searching folder ' + childFolder.getName() +
         ' at depth ' + searchDepth + " ...", 'Status', -1);
       
       // Get folder information
-      // Logger.log("Folder Name: " + childFolder.getName());
       outputRows.push([
         parentFolderName + "/" + childFolder.getName(),
         childFolder.getName(),
@@ -265,15 +261,15 @@ function getChildFolders_(searchDepth, parentFolderName, parentFolder, sheet, li
       
       // List files inside the folder
       outputRows = getChildFiles_(
-        parentFolder, childFolder, listFiles, cacheTimeout, outputRows);
+        parentFolder, childFolder, listFiles, cacheTimeout, outputRows, LOCK_WAIT_TIME_);
       
       // Recursive call of the current sub-folder
       outputRows = getChildFolders_(searchDepth++, parentFolderName + "/" + childFolder.getName(), 
         childFolder, sheet, listFiles, cacheTimeout, lockWaitTime, outputRows, searchDepthMax);
     }
   } catch (e) {
-    Logger.log('Timed out: Restarting! ' + e.toString());
-    SpreadsheetApp.getActiveSpreadsheet().toast( 'Timed out!', 'Status', -1);
+    Log_.warning('Internal error - ' + e.toString());
+    Utils_.getSpreadsheet().toast( 'Error - see log', 'Status', -1);
   }
   
   // cache outputs
@@ -285,7 +281,7 @@ function getChildFolders_(searchDepth, parentFolderName, parentFolder, sheet, li
 
 // ===========================================================================================================
 // Get the list of files in the selected folder
-function getChildFiles_(parentFolder, childFolder, listFiles, cacheTimeout, outputRows) {
+function getChildFiles_(parentFolder, childFolder, listFiles, cacheTimeout, outputRows, lockWaitTime) {
   var childFiles = childFolder.getFiles();
   var childFile = null;
   var path = ""
@@ -303,7 +299,6 @@ function getChildFiles_(parentFolder, childFolder, listFiles, cacheTimeout, outp
       }
       
       // Get file information
-      //Logger.log("File Name: " + childFile.getName());
       outputRows.push([
         path,
         childFile.getName(),
@@ -323,8 +318,8 @@ function getChildFiles_(parentFolder, childFolder, listFiles, cacheTimeout, outp
     // cache outputs
     setCache_(outputRows, lockWaitTime, cacheTimeout);
   } catch (e) {
-    Logger.log('Timed out: Restarting! ' + e.toString());
-    SpreadsheetApp.getActiveSpreadsheet().toast('Timed out!', 'Status', -1);
+    Log_.warning('Internal Error - ' + e.toString());
+    Utils_.getSpreadsheet().toast('Error - see Log', 'Status', -1);
   }
   return outputRows;
 }
@@ -334,37 +329,37 @@ function getChildFiles_(parentFolder, childFolder, listFiles, cacheTimeout, outp
 // Get the values from cache
 function setCache_(outputRows, lockWaitTime, cacheTimeout) {
   try{
-    var cache = CacheService.getScriptCache();
-    var lock = LockService.getScriptLock();
+    var cache = CacheService_;
+    var lock = LockService_;
     
     lock.waitLock(lockWaitTime);
-    cache.put(cacheOutputs, JSON.stringify(outputRows), cacheTimeout);
+    cache.put(CACHE_OUTPUTS_, JSON.stringify(outputRows), cacheTimeout);
     lock.releaseLock();
   } catch (e) {
-    Logger.log('Timed out: Restarting! ' + e.toString());
-    SpreadsheetApp.getActiveSpreadsheet().toast('Timed out!', 'Status', -1);
+    Log_.warning('Internal Error - ' + e.toString());
+    Utils_.getSpreadsheet().toast('Error - see log', 'Status', -1);
   }
 }
 
 
 // ===========================================================================================================
-// Set the values in cache
+// Get the values in cache
 function getCache_(lockWaitTime) {
-  try{
+  try {
     var outputRows = [];
-    var cache = CacheService.getScriptCache();
-    var lock = LockService.getScriptLock();
+    var cache = CacheService_;
+    var lock = LockService_;
     
     lock.waitLock(lockWaitTime);
-    outputRows =  JSON.parse(cache.get(cacheOutputs));
+    outputRows =  JSON.parse(cache.get(CACHE_OUTPUTS_));
     if (outputRows === undefined || outputRows === null ||
         outputRows[0] === undefined || outputRows[0] === null) {
-      outputRows = JSON.parse(cache.get(cacheOutputs));
+      outputRows = JSON.parse(cache.get(CACHE_OUTPUTS_));
     }
     lock.releaseLock();
   } catch (e) {
-    Logger.log('Error in getCache_(): ' + e.toString());
-    SpreadsheetApp.getActiveSpreadsheet().toast('Timed out!', 'Status', -1);
+    Log_.warning('Error in getCache_(): ' + e.toString());
+    Utils_.getSpreadsheet().toast('Error - see Log', 'Status', -1);
   }
   return outputRows;
 }
@@ -377,7 +372,7 @@ function writeOutputs_(sheet, outputRows, appendToSheet) {
     var range, rowStart, indexStart, indexEnd = null;
     var headerRow = ["Full Path", "Name", "Type", "Date", "URL", "Last Updated", "Description", "Size",
                      "Owner", "Sharing Permission", "Sharing Access"];
-    SpreadsheetApp.getActiveSpreadsheet().toast('Writing outputs...', 'Status', -1);
+    Utils_.getSpreadsheet().toast('Writing outputs...', 'Status', -1);
     
     if (sheet !== null && outputRows.length > 0) {
       if (appendToSheet === false) {
@@ -389,7 +384,7 @@ function writeOutputs_(sheet, outputRows, appendToSheet) {
       }
       
       indexStart = 0;
-      indexEnd = Math.min(writeBatchSize, outputRows.length);
+      indexEnd = Math.min(WRITE_BATCH_SIZE_, outputRows.length);
       
       while (indexStart < outputRows.length) {
         range = sheet.getRange(rowStart + indexStart, 1, indexEnd - indexStart, headerRow.length);
@@ -397,7 +392,7 @@ function writeOutputs_(sheet, outputRows, appendToSheet) {
         a = outputRows.slice(indexStart, indexEnd);
         
         indexStart = indexEnd;
-        indexEnd =  Math.min(indexStart + writeBatchSize, outputRows.length);
+        indexEnd =  Math.min(indexStart + WRITE_BATCH_SIZE_, outputRows.length);
       }
       
       range = sheet.getRange(getRowsFilled_(sheet, "A1:A") + 1, 1, 1, 1);
@@ -405,8 +400,8 @@ function writeOutputs_(sheet, outputRows, appendToSheet) {
     }
     
   } catch (e) {
-    Logger.log('Error in writeOutputs_(): ' + e.toString());  
-    SpreadsheetApp.getActiveSpreadsheet().toast('Timed out!', 'Status', -1);
+    Log_.warning('Error in writeOutputs_(): ' + e.toString());  
+    Utils_.getSpreadsheet().toast('Error - see Log', 'Status', -1);
   }
 }
 
@@ -423,16 +418,16 @@ function getRowsFilled_(sheet, selectedRange) {
 // Delete the global cache
 function deleteCache_() {
   try{
-    var cache = CacheService.getScriptCache();
-    var lock = LockService.getScriptLock();
+    var cache = CacheService_;
+    var lock = LockService_;
     
-    lock.waitLock(this.lockWaitTime);
-    cache = CacheService.getScriptCache();
-    cache.remove(cacheOutputs);
+    lock.waitLock(LOCK_WAIT_TIME_);
+    cache = CacheService_;
+    cache.remove(CACHE_OUTPUTS_);
     lock.releaseLock();
   } catch (e) {
-    Logger.log('Failed to delete cache! ' + e.toString());
-    SpreadsheetApp.getActiveSpreadsheet().toast('Failed to delete cache! Try again in a few minutes.');
+    Log_.warning('Failed to delete cache! ' + e.toString());
+    Utils_.getSpreadsheet().toast('Failed to delete cache! Try again in a few minutes.');
   }
 }
 
@@ -448,8 +443,8 @@ function deleteTriggers_() {
       }
     }
   } catch (e) {
-    Logger.log('Failed to delete triggers! ' + e.toString());
-    SpreadsheetApp.getActiveSpreadsheet().toast('Failed to delete triggers! Try again in a few minutes.');
+    Log_.warning('Failed to delete triggers! ' + e.toString());
+    Utils_.getSpreadsheet().toast('Failed to delete triggers! Try again in a few minutes.');
   }
 }
 
@@ -457,14 +452,14 @@ function deleteTriggers_() {
 // ===========================================================================================================
 // Set kill flag
 function setKillFlag_(state, cacheTimeout) {
-  var lock = LockService.getScriptLock();
+  var lock = LockService_;
   try{
-    lock.waitLock(this.lockWaitTime);
-    cache = CacheService.getScriptCache();
-    cache.put(cacheKillFlag, state, cacheTimeout);
+    lock.waitLock(LOCK_WAIT_TIME_);
+    cache = CacheService_;
+    cache.put(CACHE_KILL_FLAG_, state, cacheTimeout);
     lock.releaseLock();
   } catch (e) {
-    SpreadsheetApp.getActiveSpreadsheet().toast('Failed to set kill flag! Try again in a few minutes.');
+    Utils_.getSpreadsheet().toast('Failed to set kill flag! Try again in a few minutes.');
   }
 }
 
@@ -474,12 +469,12 @@ function setKillFlag_(state, cacheTimeout) {
 function getKillFlag_() {
   killFlag = false;
   try {
-    cache = CacheService.getScriptCache();
-    //lock.waitLock(this.lockWaitTime);
-    killFlag = cache.get(cacheKillFlag) === 'true';
+    cache = CacheService_;
+    //lock.waitLock(LOCK_WAIT_TIME_);
+    killFlag = cache.get(CACHE_KILL_FLAG_) === 'true';
     //lock.releaseLock();
   } catch (e) {
-    SpreadsheetApp.getActiveSpreadsheet().toast('Failed to set kill flag! Try again in a few minutes.');
+    Utils_.getSpreadsheet().toast('Failed to set kill flag! Try again in a few minutes.');
   }
   return killFlag;
 }
