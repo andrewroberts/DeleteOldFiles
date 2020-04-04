@@ -16,7 +16,18 @@ function test_init_() {
 }
 
 function test_misc() {
-  
+  Utils_.getSpreadsheet().toast('a')
+  debugger
+}
+
+function test_isTriggerCreated() {
+  var a = isTriggerCreated_()
+  debugger
+}
+
+function test_getConfig() {
+  var a = Utils_.getConfig()
+  debugger
 }
 
 function test_clearList() {
@@ -27,6 +38,6 @@ function test_clearList() {
 
 function test_listFiles() {
   test_init_()
-  run_()
+  listFiles_()
   debugger
 }

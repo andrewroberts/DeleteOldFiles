@@ -44,12 +44,17 @@ var ADMIN_EMAIL_ADDRESS_ = 'andrew@roberts.net'
 
 var TEST_SHEET_ID_ = '1I9RzOjYejEET6rTktDjEQqgTeekM6k5t4mLG1BGiMlU'
 
+var TEST_DISABLE_DELETE_ = true
+
+if (PRODUCTION_VERSION_ && !TEST_DISABLE_DELETE_) {
+  throw new Error('Test flags set in production version')
+}
+
 // Constants/Enums
 // ===============
 
 var DATE_PROMPT_ = 'Please supply the date, in the past and in the form YYYY-MM-DD, after which all files will be deleted. Or leave empty to delete all files listed.'
 var FOLDER_PROMPT_ = 'Please enter the ID of the folder to start from.'
-var DISABLE_DELETE_ = false
 var ROW_TOAST_COUNT_ = 10
 
 var LIST_FILES_TITLE_ = 'Listing Old Files'

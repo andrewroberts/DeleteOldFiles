@@ -57,16 +57,20 @@ var EVENT_HANDLERS_ = {
 //                           Name                            onError Message                          Main Functionality
 //                           ----                            ---------------                          ------------------
 
-  run:                       ['run()',                      'Failed to list old files',               run_],
+  listFiles:                 ['listFiles()',                'Failed to list old files',               listFiles_],
   clearList:                 ['clearList()',                'Failed to clearList',                    clearList_],
   deleteOldFiles:            ['deleteOldFiles()',           'Failed to delete old files',             deleteOldFiles_],
-  reset:                     ['reset()',                    'Failed to reset',                        reset_],
+  resetListFiles:            ['resetListFiles()',           'Failed to resetListFiles_',              resetListFiles_],
+  setUpAutomation:           ['setUpAutomation()',          'Failed to setUpAutomation',              setUpAutomation_],
+  isTriggerCreated:          ['isTriggerCreated()',         'Failed to isTriggerCreated',             isTriggerCreated_],
 }
 
-function run(args)            {return eventHandler_(EVENT_HANDLERS_.run, args)}
-function clearList(args)      {return eventHandler_(EVENT_HANDLERS_.clearList, args)}
-function deleteOldFiles(args) {return eventHandler_(EVENT_HANDLERS_.deleteOldFiles, args)}
-function reset(args)          {return eventHandler_(EVENT_HANDLERS_.reset, args)}
+function listFiles(args)        {return eventHandler_(EVENT_HANDLERS_.listFiles, args)}
+function clearList(args)        {return eventHandler_(EVENT_HANDLERS_.clearList, args)}
+function deleteOldFiles(args)   {return eventHandler_(EVENT_HANDLERS_.deleteOldFiles, args)}
+function resetListFiles(args)   {return eventHandler_(EVENT_HANDLERS_.resetListFiles, args)}
+function setUpAutomation(args)  {return eventHandler_(EVENT_HANDLERS_.setUpAutomation, args)}
+function isTriggerCreated(args) {return eventHandler_(EVENT_HANDLERS_.isTriggerCreated, args)}
 
 // Private Functions
 // =================
@@ -101,12 +105,11 @@ function eventHandler_(config, args) {
     Log_.info('Handling ' + config[0] + ' from ' + (userEmail || 'unknown email') + ' (' + SCRIPT_NAME + ' ' + SCRIPT_VERSION + ')')
     
     if (args !== undefined) {
-      LockService_ = args.lockService
       CacheService_ = args.cacheService
     }
     
     // Call the main function
-    return config[2](args)
+    return config[2]()
     
   } catch (error) {
   
@@ -122,7 +125,7 @@ function eventHandler_(config, args) {
     }
 
     Assert.handleError(assertConfig) 
-    Utils_.getSpreadsheet().toast('Finished with Error')
+    Utils_.toast('Finished with Error: ' + error.message)
   }
   
 } // eventHandler_()
@@ -130,73 +133,87 @@ function eventHandler_(config, args) {
 // Private event handlers
 // ----------------------
 
-function clearList_() {
+function listFiles_ (calledFromTrigger, config) {ListFiles_.listFiles(calledFromTrigger, config)}
+function resetListFiles_() {ListFiles_.reset()}
+function clearList_() {ListFiles_.clear()}
+function isTriggerCreated_() {return Utils_.getDeleteTrigger() !== null}
+
+function deleteOldFiles_(calledFromTrigger, config) {
+
   var spreadsheet = Utils_.getSpreadsheet()
+  var numberDeleted = null
+  var ui = SpreadsheetApp.getUi()
+  var buttons = ui.ButtonSet
+  var deleteDate = getDeleteDate()
+  if (!deleteDate) {return}    
   var sheet = spreadsheet.getSheetByName('Files')
-  var numberOfRows = sheet.getLastRow()
-  if (numberOfRows < 2) {return}
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent()
-  spreadsheet.toast('List in "Files" cleared', 'Clear List')
-}
-
-function deleteOldFiles_() {
-
-  try {
-
-    var spreadsheet = Utils_.getSpreadsheet()
-    var numberDeleted = null
-    var ui = SpreadsheetApp.getUi()
-    var buttons = ui.ButtonSet
-    var deleteDate = getDeleteDate()
-    if (!deleteDate) {return}    
-    var sheet = spreadsheet.getSheetByName('Files')
-    var data = sheet.getDataRange().getValues()
-    data.shift() // Remove headers
-    var numberOfRows = sheet.getLastRow() - 2
-    numberDeleted = processRows()
+  var data = sheet.getDataRange().getValues()
+  data.shift() // Remove headers
+  var numberOfRows = sheet.getLastRow() - 2
+  numberDeleted = processRows()
     
-  } catch (error) {
-  
-    throw error
-  
-  } finally {
-  
-    if (numberDeleted) {
-      spreadsheet.toast(
-        'Deleted ' + numberDeleted.folders + ' folders, ' + 
-          'and ' + numberDeleted.files + ' files.', DELETE_FILES_TITLE_, -1)
-    }
+  if (numberDeleted) {
+    Utils_.toast(
+      'Deleted ' + numberDeleted.folders + ' folders, ' + 
+      'and ' + numberDeleted.files + ' files.', DELETE_FILES_TITLE_)
   }
   
   return
   
   // Private Functions
   // -----------------
-
-  function getDeleteDate() {
-
-    var deleteDate = DateTime.getMidnightLastNight(new Date())    
-    var response = ui.prompt(DELETE_FILES_TITLE_, DATE_PROMPT_, buttons.OK_CANCEL)
-    
-    if (response.getSelectedButton() !== ui.Button.OK) {return null}
   
-    var dateString = response.getResponseText()
-    
-    if (dateString === '') { 
-      dateString = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'YYYY-MM-dd')
+  function getDeleteDate() {
+  
+    if (calledFromTrigger) {
+      return getDaysBefore(deleteOlderThan) 
+    } else {
+      return getUserDeleteDate()
     }
-
-    deleteDate = DateTime.getDateTimeFromString({type: 'YYYY-MM-DD mm:hh:ss', dateTime: dateString})
-    if (!deleteDate) {throw new Error('Invalid date: "' + deleteDate + '". It has to be in the format YYYY-MM-DD')}
     
-    response = ui.alert(
-      'Deleting Files', 
-      'Please confirm you want to delete all files before ' + dateString, 
-      buttons.OK_CANCEL)
-        
-    if (response !== ui.Button.OK) {return null} 
-    return deleteDate
-  }
+    // Private Functions
+    // -----------------
+    
+    function getDaysBefore() {
+    
+      var deleteOlderThan = config.deleteOlderThan
+      
+      if (deleteOlderThan === undefined) {
+        throw new Error('"deleteOlderThan" days not defined in Settings')
+      }
+      
+      var deleteBeforeDate = DateTime.getDayOffsetDate(new Date(), deleteOlderThan)
+      Log_.fine('deleteBeforeDate: ' + deleteBeforeDate)
+      return deleteBeforeDate
+    }      
+    
+    function getUserDeleteDate() {
+    
+      var deleteDate = DateTime.getMidnightLastNight(new Date())    
+      var response = ui.prompt(DELETE_FILES_TITLE_, DATE_PROMPT_, buttons.OK_CANCEL)
+      
+      if (response.getSelectedButton() !== ui.Button.OK) {return null}
+    
+      var dateString = response.getResponseText()
+      
+      if (dateString === '') { 
+        dateString = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'YYYY-MM-dd')
+      }
+  
+      deleteDate = DateTime.getDateTimeFromString({type: 'YYYY-MM-DD mm:hh:ss', dateTime: dateString})
+      if (!deleteDate) {throw new Error('Invalid date: "' + deleteDate + '". It has to be in the format YYYY-MM-DD')}
+      
+      response = ui.alert(
+        'Deleting Files', 
+        'Please confirm you want to delete all files before ' + dateString, 
+        buttons.OK_CANCEL)
+          
+      if (response !== ui.Button.OK) {return null}     
+
+      return deleteDate
+    }
+    
+  } // deleteOldFiles_.getDeleteDate()
 
   function processRows() {
   
@@ -230,7 +247,7 @@ function deleteOldFiles_() {
           
           if (type === 'Folder') {
             
-            if (DISABLE_DELETE_) {
+            if (TEST_DISABLE_DELETE_) {
               result = 'DUMMY_DELETED'
             } else {
               result = deleteResource(DriveApp.getFolderById(nextId))
@@ -239,7 +256,7 @@ function deleteOldFiles_() {
             
           } else {
             
-            if (DISABLE_DELETE_) {
+            if (TEST_DISABLE_DELETE_) {
               result = 'DUMMY_DELETED'
             } else {
               result = deleteResource(DriveApp.getFileById(nextId))              
@@ -254,15 +271,12 @@ function deleteOldFiles_() {
       
       sheet.getRange(rowIndex + 2, 12).setValue(result) 
       if (rowIndex % ROW_TOAST_COUNT_ === 0) {
-        spreadsheet.toast('Processed ' + rowIndex + ' rows', DELETE_FILES_TITLE_, -1)
+        Utils_.toast('Processed ' + rowIndex + ' rows', DELETE_FILES_TITLE_)
       }
               
     } // for each row
     
     return deleteCount
-    
-    // Private Functions
-    // -----------------
     
     function deleteResource(resource) {
       var result
@@ -275,6 +289,41 @@ function deleteOldFiles_() {
       return result
     }
     
-  } // deleteOldFiles_.processRow()  
+  } // deleteOldFiles_.processRows()  
   
 } // deleteOldFiles_()
+
+/** 
+ * Toggle automatic deletions
+ */
+ 
+function setUpAutomation_() {
+
+  var config = Utils_.getConfig()
+  var triggerId = Utils_.getTrigger('automaticDelete')
+  
+  if (triggerId === null) {
+  
+    var trigger = ScriptApp
+      .newTrigger('automaticDelete')
+      .timeBased()
+      .everyDays(config.dayFrequency)
+      .create()
+      
+    Log_.info('Created "automaticDelete" trigger ' + trigger.getUniqueId())
+      
+  } else {
+    Log_.info('Deleting "automaticDelete" trigger ' + trigger.getUniqueId())
+    ScriptApp.deleteTrigger(trigger)
+  }
+}
+
+function automaticDelete_(event) {
+
+  var calledFromTrigger = true
+  var config = Utils_.getConfig()
+
+  listFiles_(calledFromTrigger, config)
+  deleteOldFiles_(calledFromTrigger, config)
+  Log_.info('Finished automatic deletion of files')
+}
