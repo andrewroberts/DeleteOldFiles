@@ -1,5 +1,8 @@
 // https://gist.github.com/mesgarpour/07317e81e9ee2b3f1699
 
+// JSHint - 20200406
+/* jshint asi: true */
+
 /*
 * Copyright 2017 Mohsen Mesgarpour
 *
@@ -91,17 +94,6 @@
 *
 * -----------------------------------------------------------------------------------------------------------
 *
-* @version 2.2 (2018.04)
-* @see     https://github.com/mesgarpour
-*/
-
-  ////////// TO DO /////////////
-  /*
-  
-  - try/catch
-  - lock
-  - caching
-  
 */
 
 var HEADER_ROW = [
@@ -121,7 +113,6 @@ var HEADER_ROW = [
 var SEARCH_DEPTH_MAX_ = 10 // Max depth for recursive search of files and folders
 var LIST_FILES_       = true // flag for listing files
 var CACHE_TIMEOUT_    = 24 * 60 * 60 * 1000 // set cache time-out
-var LOCK_WAIT_TIME_   = 1 * 60 * 1000 // set maximium watiting time for the cache lock
 var APPEND_TO_SHEET_  = true // flag for appending to selected spreadsheet
 var WRITE_BATCH_SIZE_ = 100 // the write batch size
 
@@ -199,7 +190,7 @@ var ListFiles_ = (function(ns) {
   
       if (calledFromTrigger) {
       
-        startFolderId = config.startFolderId
+        startFolderId = config.START_FOLDER_ID.Value
         
       } else {
       
@@ -217,7 +208,7 @@ var ListFiles_ = (function(ns) {
         } 
       }    
       
-      if (startFolderId !== null) {
+      if (startFolderId) {
         folder = DriveApp.getFolderById(startFolderId)
       }
       
@@ -348,7 +339,7 @@ var ListFiles_ = (function(ns) {
         
         range = listSheet.getRange(rowStart + indexStart, 1, indexEnd - indexStart, HEADER_ROW.length)
         range.setValues(outputRows.slice(indexStart, indexEnd))
-        a = outputRows.slice(indexStart, indexEnd)
+        outputRows.slice(indexStart, indexEnd)
         
         indexStart = indexEnd
         indexEnd = Math.min(indexStart + WRITE_BATCH_SIZE_, outputRows.length)
@@ -374,16 +365,16 @@ var ListFiles_ = (function(ns) {
   // -------
   
   function setCache(outputRows) {
-    CacheService_.put(CACHE_OUTPUTS_, JSON.stringify(outputRows), CACHE_TIMEOUT_)
+    Cache_.put(CACHE_OUTPUTS_, JSON.stringify(outputRows), CACHE_TIMEOUT_)
   }
   
   function getCache() {  
-    var cache = CacheService_.get(CACHE_OUTPUTS_)
+    var cache = Cache_.get(CACHE_OUTPUTS_)
     return (cache === null) ? null : JSON.parse(cache)
   }
   
   function deleteCache() {
-    CacheService_.remove(CACHE_OUTPUTS_)
+    Cache_.remove(CACHE_OUTPUTS_)
   }
   
   return ns

@@ -1,6 +1,6 @@
 // 34567890123456789012345678901234567890123456789012345678901234567890123456789
 
-// JSHint - TODO
+// JSHint - 20200406
 /* jshint asi: true */
 
 (function() {"use strict"})()
@@ -34,22 +34,19 @@ var Utils_ = (function(ns) {
     
   } // Utils_.getSpreadsheet()
   
-  ns.getDeleteTrigger = function(handlerFunctionName) {
-    var triggerId = null
-    ScriptApp.getProjectTriggers().forEach(function(trigger) {
-      if (trigger.getHandlerFunction() === handlerFunctionName) {
-        if (triggerId !== null) {throw new Error('Multiple ' + handlerFunctionName + ' triggers')}
-        triggerId = trigger.getUniqueId()
-      }
-    })
-    return triggerId
-  }
-        
   ns.toast = function(message, title, timeout) {
     var spreadsheet = Utils_.getSpreadsheet()
     if (spreadsheet !== null && SpreadsheetApp.getActive() !== null) {
       timeout = timeout || null
       spreadsheet.toast(message, title, timeout)
+    }
+  }      
+  
+  ns.alert = function(message, title) {
+    var spreadsheet = Utils_.getSpreadsheet()
+    if (spreadsheet !== null && SpreadsheetApp.getActive() !== null) {
+      var ui = SpreadsheetApp.getUi()
+      ui.alert(title, message, ui.ButtonSet.OK)
     }
   }      
   

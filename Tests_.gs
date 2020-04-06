@@ -6,7 +6,7 @@
 // Dev: AndrewRoberts.net
 //
 // Code for internal/unit testing
-
+/*
 function test_init_() {
   Log_ = BBLog.getLog({
     sheetId:              TEST_SHEET_ID_,
@@ -15,8 +15,8 @@ function test_init_() {
   })  
 }
 
-function test_misc() {
-  Utils_.getSpreadsheet().toast('a')
+function test_misc(config) {
+  Logger.log(config.propertiesService.getProperties())
   debugger
 }
 
@@ -41,3 +41,4 @@ function test_listFiles() {
   listFiles_()
   debugger
 }
+*/
