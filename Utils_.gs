@@ -1,6 +1,6 @@
 // 34567890123456789012345678901234567890123456789012345678901234567890123456789
 
-// JSHint - TODO
+// JSHint - 20200406
 /* jshint asi: true */
 
 (function() {"use strict"})()
@@ -10,7 +10,7 @@
 //
 // Object template
 
-const Utils_ = (function(ns) {
+var Utils_ = (function(ns) {
 
   /**
    * Get the active spreadsheet, failing that the test one.
@@ -20,9 +20,7 @@ const Utils_ = (function(ns) {
  
   ns.getSpreadsheet = function() {
   
-    Log_.functionEntryPoint() 
-    
-    const spreadsheet = SpreadsheetApp.getActive()
+    var spreadsheet = SpreadsheetApp.getActive()
     
     if (spreadsheet === null) {
       if (!PRODUCTION_VERSION_) {
@@ -35,7 +33,42 @@ const Utils_ = (function(ns) {
     return spreadsheet
     
   } // Utils_.getSpreadsheet()
-        
+  
+  ns.toast = function(message, title, timeout) {
+    var spreadsheet = Utils_.getSpreadsheet()
+    if (spreadsheet !== null && SpreadsheetApp.getActive() !== null) {
+      timeout = timeout || null
+      spreadsheet.toast(message, title, timeout)
+    }
+  }      
+  
+  ns.alert = function(message, title) {
+    var spreadsheet = Utils_.getSpreadsheet()
+    if (spreadsheet !== null && SpreadsheetApp.getActive() !== null) {
+      var ui = SpreadsheetApp.getUi()
+      ui.alert(title, message, ui.ButtonSet.OK)
+    }
+  }      
+  
+  ns.getConfig = function() {
+  
+    var config = {}
+    
+    SsObjects.addArrayToObject({
+      objects: config,
+      id: 'Name',
+      data: Utils_
+        .getSpreadsheet()
+        .getSheetByName('Settings')
+        .getDataRange()
+        .getValues()
+    })
+
+    Log_.fine('config: ' + config)
+
+    return config
+  }
+  
   return ns
 
 })(Utils_ || {})

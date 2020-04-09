@@ -15,7 +15,7 @@
 * limitations under the License.
 */
 
-// JSHint - TODO
+// JSHint - 20200406
 /* jshint asi: true */
 
 (function() {"use strict"})()
@@ -33,7 +33,9 @@
 // The filename is prepended with _API as the Github chrome extension won't 
 // push a file with the same name as the project.
 
-var Log_
+var Log_ = null
+var Properties_ = null
+var Cache_ = null
 
 // Public event handlers
 // ---------------------
@@ -50,33 +52,31 @@ var Log_
 // For debug, rather than production builds, lower level functions are exposed
 // in the menu
 
-const EVENT_HANDLERS_ = {
+var EVENT_HANDLERS_ = {
 
 //                           Name                            onError Message                          Main Functionality
 //                           ----                            ---------------                          ------------------
 
-  run:                       ['run()',                      'Failed to list old files',               run_],
+  listFiles:                 ['listFiles()',                'Failed to list old files',               listFiles_],
   clearList:                 ['clearList()',                'Failed to clearList',                    clearList_],
-  deleteOldFiles:            ['deleteOldFiles()',           'Failed to delete old files',             deleteOldFiles_],
-  reset:                     ['reset()',                    'Failed to reset',                        reset_],
+  resetListFiles:            ['resetListFiles()',           'Failed to resetListFiles_',              resetListFiles_],
+  
+  setUpAutomation:           ['setUpAutomation()',          'Failed to setUpAutomation',              setUpAutomation_],
+  isTriggerCreated:          ['isTriggerCreated()',         'Failed to isTriggerCreated',             isTriggerCreated_],
+  automaticDelete:           ['automaticDelete()',          'Failed to automaticDelete',              automaticDelete_],
+  
+  deleteOldFiles:            ['deleteOldFiles()',           'Failed to delete old files',             deleteOldFiles_],  
 }
 
-function run(args)            {return eventHandler_(EVENT_HANDLERS_.run, args)}
-function clearList(args)      {return eventHandler_(EVENT_HANDLERS_.clearList, args)}
-function deleteOldFiles(args) {return eventHandler_(EVENT_HANDLERS_.deleteOldFiles, args)}
-function reset(args)          {return eventHandler_(EVENT_HANDLERS_.reset, args)}
+function listFiles(args)        {return eventHandler_(EVENT_HANDLERS_.listFiles, args)}
+function clearList(args)        {return eventHandler_(EVENT_HANDLERS_.clearList, args)}
+function resetListFiles(args)   {return eventHandler_(EVENT_HANDLERS_.resetListFiles, args)}
 
-function onOpen() {
-  SpreadsheetApp
-    .getUi()
-    .createMenu('ListFiles')    
-    .addItem('Clear list', 'clearList')
-    .addItem('1. List Old Files', 'run')
-    .addSeparator()
-    .addItem('2. Delete Old Files', 'deleteOldFiles')
-    .addItem('Reset after failed run', 'reset')       
-    .addToUi()
-}
+function setUpAutomation(args)  {return eventHandler_(EVENT_HANDLERS_.setUpAutomation, args)}
+function isTriggerCreated(args) {return eventHandler_(EVENT_HANDLERS_.isTriggerCreated, args)}
+function automaticDelete(args)  {return eventHandler_(EVENT_HANDLERS_.automaticDelete, args)}
+
+function deleteOldFiles(args)   {return eventHandler_(EVENT_HANDLERS_.deleteOldFiles, args)}
 
 // Private Functions
 // =================
@@ -101,7 +101,7 @@ function eventHandler_(config, args) {
 
   try {
 
-    const userEmail = Session.getActiveUser().getEmail()
+    var userEmail = Session.getActiveUser().getEmail()
 
     Log_ = BBLog.getLog({
       level:                DEBUG_LOG_LEVEL_, 
@@ -110,23 +110,29 @@ function eventHandler_(config, args) {
     
     Log_.info('Handling ' + config[0] + ' from ' + (userEmail || 'unknown email') + ' (' + SCRIPT_NAME + ' ' + SCRIPT_VERSION + ')')
     
+    if (args !== undefined) {
+      Cache_ = args.cacheService
+      Properties_ = args.propertiesService
+    }
+
     // Call the main function
-    return config[2](args)
+    return config[2]()
     
   } catch (error) {
   
-    const assertConfig = {
+    var assertConfig = {
       error:          error,
       userMessage:    config[1],
       log:            Log_,
       handleError:    HANDLE_ERROR_, 
       sendErrorEmail: SEND_ERROR_EMAIL_, 
-      emailAddress:   ADMIN_EMAIL_ADDRESS_,
+      emailAddress:   userEmail || ADMIN_EMAIL_ADDRESS_,
       scriptName:     SCRIPT_NAME,
       scriptVersion:  SCRIPT_VERSION, 
     }
 
     Assert.handleError(assertConfig) 
+    Utils_.toast('Finished with Error: ' + error.message)
   }
   
 } // eventHandler_()
@@ -134,145 +140,12 @@ function eventHandler_(config, args) {
 // Private event handlers
 // ----------------------
 
-function clearList() {
-  var sheet = SpreadsheetApp.getActive().getSheetByName('Files')
-  sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).clearContent()
-}
+function listFiles_(calledFromTrigger, config) {ListFiles_.listFiles(calledFromTrigger, config)}
+function resetListFiles_()                     {ListFiles_.reset()}
+function clearList_()                          {ListFiles_.clear()}
 
-function deleteOldFiles_() {
+function deleteOldFiles_(calledFromTrigger, config)   {DeleteFiles_.deleteFiles(calledFromTrigger, config)}
 
-  try {
-
-    var ui = SpreadsheetApp.getUi()
-    var buttons = ui.ButtonSet
-    var deleteDate = getDeleteDate()
-    var spreadsheet = SpreadsheetApp.getActive()
-    var sheet = spreadsheet.getSheetByName('Files')
-    var data = sheet.getDataRange().getValues()
-    data.shift() // Remove headers
-    var numberOfRows = sheet.getLastRow() - 2
-    var numberDeleted = processRows()
-    
-  } catch (error) {
-  
-    throw error
-  
-  } finally {
-  
-    spreadsheet.toast(
-      'Deleted ' + numberDeleted.folders + ' folders, ' + 
-        'and ' + numberDeleted.files + ' files.', DELETE_FILES_TITLE_, -1)
-  }
-  
-  return
-  
-  // Private Functions
-  // -----------------
-
-  function getDeleteDate() {
-
-return DateTime.getDateTimeFromString({type: 'YYYY-MM-DD mm:hh:ss', dateTime: '2020-03-26'})
-
-    var deleteDate = DateTime.getMidnightLastNight(new Date())
-    
-    var response = ui.prompt(DELETE_FILES_TITLE_, DATE_PROMPT_, buttons.OK_CANCEL)
-    
-    if (response.getSelectedButton() !== ui.Button.OK) {return}
-  
-    responseText = response.getResponseText()
-    
-    if (responseText !== '') {  
-      deleteDate = DateTime.getDateTimeFromString({type: 'YYYY-MM-DD mm:hh:ss', dateTime: responseText})
-      if (!deleteDate) {throw new Error('Invalid date: "' + deleteDate + '". It has to be in the format YYYY-MM-DD')}
-    }
-    
-    var dateString = Utilities.formatDate(deleteDate, Session.getScriptTimeZone(), 'YYYY-MM-dd')
-    
-    if (dateString === deleteDate) {
-      response = ui.prompt('Deleting Files', 'Please confirm you want to delete all files', buttons.OK_CANCEL)
-      if (response.getSelectedButton() !== ui.Button.OK) {return} 
-    }  
-  
-    return deleteDate
-  }
-
-  function processRows() {
-  
-    var deleteCount = {
-      folders: 0,
-      files: 0
-    }
-
-    for (var rowIndex = numberOfRows - 1; rowIndex >= 0; rowIndex--) {
-      
-      var row = data[rowIndex]   
-   
-      var fullPath = row[0]
-      var status = row[11]
-      
-      if (fullPath === 'End of List!' || (status !== '' && status.indexOf('ERROR') === -1)) {
-        continue;
-      } 
-   
-      var fileCreatedDate = DateTime.getMidnightLastNight(row[3])
-      var result
-      
-      if (fileCreatedDate > deleteDate) {
-        result = 'IGNORED'
-      } else {
-        
-        var type = row[2]
-        var nextId = row[4]
-        
-        try {
-          
-          if (type === 'Folder') {
-            
-            if (DISABLE_DELETE_) {
-              result = 'DUMMY_DELETED'
-            } else {
-              result = deleteResource(DriveApp.getFolderById(nextId))
-              if (result === 'DELETED') {deleteCount.folders++}
-            }
-            
-          } else {
-            
-            if (DISABLE_DELETE_) {
-              result = 'DUMMY_DELETED'
-            } else {
-              result = deleteResource(DriveApp.getFileById(nextId))              
-              if (result === 'DELETED') {deleteCount.files++}              
-            }        
-          }
-          
-        } catch (error) {      
-          result = 'ERROR: ' + error.message      
-        } 
-      }
-      
-      sheet.getRange(rowIndex + 2, 12).setValue(result) 
-      if (rowIndex % ROW_TOAST_COUNT_ === 0) {
-        spreadsheet.toast('Processed ' + rowIndex + ' rows', DELETE_FILES_TITLE_, -1)
-      }
-              
-    } // for each row
-    
-    return deleteCount
-    
-    // Private Functions
-    // -----------------
-    
-    function deleteResource(resource) {
-      var result
-      if (resource === null) {
-        result = 'ERROR: Can not access or find ' + fullPath
-      } else {
-        resource.setTrashed(true)
-        result = 'DELETED'
-      }
-      return result
-    }
-    
-  } // deleteOldFiles_.processRow()  
-  
-} // deleteOldFiles_()
+function isTriggerCreated_() {return Automation_.isTriggerCreated()}
+function setUpAutomation_()  {Automation_.setup()}
+function automaticDelete_()  {Automation_.deleteFiles()}

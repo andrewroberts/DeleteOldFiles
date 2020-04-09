@@ -5,6 +5,11 @@
 //
 // Dev: AndrewRoberts.net
 
+// v1.1
+// ----
+//
+// * Added automatic deletion
+
 // v1.0
 // ----
 //
