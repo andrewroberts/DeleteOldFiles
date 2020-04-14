@@ -22,7 +22,7 @@
 // =============
 
 var SCRIPT_NAME = "DeleteOldFiles"
-var SCRIPT_VERSION = "v1.0.dev_ajr"
+var SCRIPT_VERSION = "v1.3"
 
 var PRODUCTION_VERSION_ = true
 
@@ -53,7 +53,13 @@ if (PRODUCTION_VERSION_ && !TEST_DELETE_FILES) {
 // Constants/Enums
 // ===============
 
-var DATE_PROMPT_ = 'Please supply the date, in the past and in the form YYYY-MM-DD, before which all files will be deleted. Or leave empty to delete all files listed.'
+var DATE_PROMPT_ = 
+  'Please enter the delete date. Any listed files that were created before \n' + 
+    'or on this date will be trashed (not permanently deleted).\n\n' + 
+   'The date must be in the form YYYY-MM-DD. \n\n' + 
+   'Leave empty to delete all listed files.\n\n' + 
+   'Any files with Status "TRASHED" will be ignored.\n\n'
+  
 var FOLDER_PROMPT_ = 'Please enter the ID of the folder to start from.'
 var ROW_TOAST_COUNT_ = 10
 
