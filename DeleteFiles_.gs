@@ -94,7 +94,7 @@ var DeleteFiles_ = (function(ns) {
         
         response = ui.alert(
           'Deleting Files', 
-          'Please confirm you want to delete all files before ' + dateString, 
+          'Please confirm you want to trash (not permanently delete) \nall listed files created on or before ' + dateString + '.', 
           buttons.OK_CANCEL)
         
         if (response !== ui.Button.OK) {return null}     
@@ -118,7 +118,7 @@ var DeleteFiles_ = (function(ns) {
         var fullPath = row[0]
         var status = row[11]
         
-        if (fullPath === 'End of List!' || (status !== '' && status.indexOf('ERROR') === -1)) {
+        if (fullPath === 'End of List!' || status == 'TRASHED') {
           continue;
         } 
         
@@ -126,7 +126,7 @@ var DeleteFiles_ = (function(ns) {
         var result
         
         if (fileCreatedDate > deleteDate) {
-          result = 'IGNORED'
+          result = 'IGNORED_TOO_RECENT'
         } else {
           
           var type = row[2]
@@ -141,10 +141,10 @@ var DeleteFiles_ = (function(ns) {
             
               if (type === 'Folder') {               
                   result = deleteResource(DriveApp.getFolderById(nextId))
-                  if (result === 'DELETED') {deleteCount.folders++}              
+                  if (result === 'TRASHED') {deleteCount.folders++}              
               } else {       
                   result = deleteResource(DriveApp.getFileById(nextId))              
-                  if (result === 'DELETED') {deleteCount.files++}              
+                  if (result === 'TRASHED') {deleteCount.files++}              
               }
             }
             
@@ -168,7 +168,7 @@ var DeleteFiles_ = (function(ns) {
           result = 'ERROR: Can not access or find ' + fullPath
         } else {
           resource.setTrashed(true)
-          result = 'DELETED'
+          result = 'TRASHED'
         }
         return result
       }

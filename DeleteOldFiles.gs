@@ -35,7 +35,6 @@
 
 var Log_ = null
 var Properties_ = null
-var Cache_ = null
 
 // Public event handlers
 // ---------------------
@@ -59,7 +58,6 @@ var EVENT_HANDLERS_ = {
 
   listFiles:                 ['listFiles()',                'Failed to list old files',               listFiles_],
   clearList:                 ['clearList()',                'Failed to clearList',                    clearList_],
-  resetListFiles:            ['resetListFiles()',           'Failed to resetListFiles_',              resetListFiles_],
   
   setUpAutomation:           ['setUpAutomation()',          'Failed to setUpAutomation',              setUpAutomation_],
   isTriggerCreated:          ['isTriggerCreated()',         'Failed to isTriggerCreated',             isTriggerCreated_],
@@ -70,7 +68,6 @@ var EVENT_HANDLERS_ = {
 
 function listFiles(args)        {return eventHandler_(EVENT_HANDLERS_.listFiles, args)}
 function clearList(args)        {return eventHandler_(EVENT_HANDLERS_.clearList, args)}
-function resetListFiles(args)   {return eventHandler_(EVENT_HANDLERS_.resetListFiles, args)}
 
 function setUpAutomation(args)  {return eventHandler_(EVENT_HANDLERS_.setUpAutomation, args)}
 function isTriggerCreated(args) {return eventHandler_(EVENT_HANDLERS_.isTriggerCreated, args)}
@@ -111,7 +108,9 @@ function eventHandler_(config, args) {
     Log_.info('Handling ' + config[0] + ' from ' + (userEmail || 'unknown email') + ' (' + SCRIPT_NAME + ' ' + SCRIPT_VERSION + ')')
     
     if (args !== undefined) {
-      Cache_ = args.cacheService
+      if (args.propertiesService === undefined) {
+        throw new Error('No properties value')
+      }
       Properties_ = args.propertiesService
     }
 
@@ -141,7 +140,6 @@ function eventHandler_(config, args) {
 // ----------------------
 
 function listFiles_(calledFromTrigger, config) {ListFiles_.listFiles(calledFromTrigger, config)}
-function resetListFiles_()                     {ListFiles_.reset()}
 function clearList_()                          {ListFiles_.clear()}
 
 function deleteOldFiles_(calledFromTrigger, config)   {DeleteFiles_.deleteFiles(calledFromTrigger, config)}

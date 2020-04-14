@@ -32,11 +32,6 @@
 *    - 'listFiles': It lists all folders and optionally files in the specified location, then writes them into
 *            the selected spreadsheet.
 *
-*    - 'reset': It resets the script global cache. It must be run if the script was interrupted, to
-*            clean out the cache and triggers. Moreover, since the outputs are cached and are written
-*            after the whole list is created, if you run the script after the crash it would write all
-*            the cached output into the sheet, then clears the cache.
-*
 * Configurations: The following configuration parameters must be configured before running the script.
 *
 *    - 'folderId' (type: string):
@@ -48,12 +43,6 @@
 *    - 'listFiles' (type: boolean):
 *          It is a flag to indicate if the listing must include files.
 *
-*    - 'cacheTimeout' (type: unsigned integer, in milliseconds):
-*          The maximum time that internal cache persists in memory.
-*
-*    - 'lockWaitTime' (type: unsigned integer, in milliseconds):
-*          The maximum watiting time for the cache reader/writer to wait for the memory lock.
-*
 *    - 'appendToSheet' (type: boolean):
 *          It is a flag for appending to the selected spreadsheet.
 *
@@ -61,8 +50,7 @@
 *    - 'writeBatchSize' (type: unsigned integer):
 *          The batch size for writing into the spreadsheet.
 *
-* Algorithm: The written functions uses a recursive function to list files & folders, and it uses
-*            a caching mechanisem to save the outputs in cache and write at the end.
+* Algorithm: The written functions uses a recursive function to list files & folders
 *
 * -----------------------------------------------------------------------------------------------------------
 * Note-1: Because Apps Script services impose daily quotas and hard limitations on some features. If
@@ -112,24 +100,11 @@ var HEADER_ROW = [
 
 var SEARCH_DEPTH_MAX_ = 10 // Max depth for recursive search of files and folders
 var LIST_FILES_       = true // flag for listing files
-var CACHE_TIMEOUT_    = 24 * 60 * 60 * 1000 // set cache time-out
-var APPEND_TO_SHEET_  = true // flag for appending to selected spreadsheet
 var WRITE_BATCH_SIZE_ = 100 // the write batch size
-
-var CACHE_OUTPUTS_ = 'ListFile_outputs'
 
 // Main Object
 
 var ListFiles_ = (function(ns) {
-
-  /**
-   * Reset the script cache if it is required to run from the beginning
-   */
-  
-  ns.reset = function() {
-    deleteCache()  
-    Utils_.toast('Reset is complete!', 'Status')
-  }
 
   ns.clear = function() {
     var spreadsheet = Utils_.getSpreadsheet()
@@ -151,22 +126,20 @@ var ListFiles_ = (function(ns) {
       var spreadsheet = Utils_.getSpreadsheet()
       Utils_.toast('Executing script...', 'Status', -1)
       
+      if (calledFromTrigger) {ListFiles_.clear()}
+      
       var listSheet = spreadsheet.getSheetByName('Files')
       
       var startFolder = getStartFolder()  
       if (!startFolder) {return}
     
-      var outputRows = getCache()
+      outputRows = []
+      getChildFiles(null, startFolder)     
       
-      if (outputRows === null) {  
-        outputRows = []
-        getChildFiles(null, startFolder)        
-        var SEARCH_DEPTH = -1
-        getChildFolders(SEARCH_DEPTH, startFolder.getName(), startFolder)
-      }
+      var SEARCH_DEPTH = -1
+      getChildFolders(SEARCH_DEPTH, startFolder.getName(), startFolder)
       
       writeOutputs()
-      ListFiles_.reset()
       
     } catch (error) {
     
@@ -255,8 +228,6 @@ var ListFiles_ = (function(ns) {
           childFile.getSharingAccess()
         ])
       }
-      
-      setCache(outputRows)
         
     } // listFiles_.getChildFiles()
     
@@ -297,7 +268,6 @@ var ListFiles_ = (function(ns) {
           childFolder.getSharingAccess()
         ])
         
-        setCache(outputRows)
         getChildFiles(parentFolder, childFolder)
         
         // Recursive call of the current sub-folder
@@ -306,14 +276,12 @@ var ListFiles_ = (function(ns) {
           parentFolderName + "/" + childFolder.getName(), 
           childFolder)
       }
-        
-      setCache(outputRows)  
-      
+              
     } // listFiles_.getChildFolders()
     
     /**
-    * Write outputs to the selected spreadsheet
-    */
+     * Write outputs to the selected spreadsheet
+     */
     
     function writeOutputs() {
 
@@ -321,10 +289,9 @@ var ListFiles_ = (function(ns) {
       if (outputRows === null || outputRows.length < 1) {return}
 
       Utils_.toast('Writing outputs...', 'Status')
-        
-      if (!APPEND_TO_SHEET_) {
-        listSheet.clear()
-        listSheet.appendRow(HEADER_ROW)
+      
+      if (calledFromTrigger) {
+        ListFiles_.clear()
         rowStart = 2
       } else {
         rowStart = getRowsFilled_(listSheet, "A1:A") + 1
@@ -360,22 +327,6 @@ var ListFiles_ = (function(ns) {
     } // listFiles_.writeOutputs()
     
   } // listFiles_()
-  
-  // Caching
-  // -------
-  
-  function setCache(outputRows) {
-    Cache_.put(CACHE_OUTPUTS_, JSON.stringify(outputRows), CACHE_TIMEOUT_)
-  }
-  
-  function getCache() {  
-    var cache = Cache_.get(CACHE_OUTPUTS_)
-    return (cache === null) ? null : JSON.parse(cache)
-  }
-  
-  function deleteCache() {
-    Cache_.remove(CACHE_OUTPUTS_)
-  }
   
   return ns
 
