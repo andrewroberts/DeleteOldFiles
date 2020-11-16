@@ -72,6 +72,7 @@ var Automation_ = (function(ns) {
     })
 
     if (trigger === null && !!Properties_.getProperty('AUTOMATIC_DELETE_TRIGGER_ID')) {
+      
       throw new Error('Trigger ID stored, but no trigger')
     }
     

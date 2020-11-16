@@ -6,7 +6,7 @@
 // Dev: AndrewRoberts.net
 //
 // Code for internal/unit testing
-/*
+
 function test_init_() {
   Log_ = BBLog.getLog({
     sheetId:              TEST_SHEET_ID_,
@@ -41,4 +41,3 @@ function test_listFiles() {
   listFiles_()
   debugger
 }
-*/

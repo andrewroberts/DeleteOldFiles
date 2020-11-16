@@ -22,7 +22,7 @@
 // =============
 
 var SCRIPT_NAME = "DeleteOldFiles"
-var SCRIPT_VERSION = "v1.3"
+var SCRIPT_VERSION = "v1.3.dev"
 
 var PRODUCTION_VERSION_ = true
 
